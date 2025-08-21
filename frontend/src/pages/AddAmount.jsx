@@ -1,23 +1,44 @@
 // src/components/Pages/AddAmount.js
-import React, { useState } from 'react';
-import { Plus, CreditCard, Wallet, DollarSign } from 'lucide-react';
-// Zaroori hooks aur utilities import karen
+import React, { useState, useEffect } from 'react';
+import { Plus, CreditCard, Wallet, DollarSign, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
 import { api } from '../utils/api';
 
 const AddAmount = () => {
-  // useAuth hook se user aur updateUser function ko lein
   const { user, updateUser } = useAuth();
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('card');
-  const [loading, setLoading] = useState(false); // Naya loading state
+  const [loading, setLoading] = useState(false);
+  // ✅ New state to hold the list of transactions
+  const [transactions, setTransactions] = useState([]);
+  // ✅ New state for transaction loading
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
 
   const quickAmounts = [10, 25, 50, 100, 250, 500];
 
   const handleQuickAmount = (value) => {
     setAmount(value.toString());
   };
+
+  // ✅ New useEffect hook to fetch transactions on component load and balance change
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        setTransactionsLoading(true);
+        // New API call to fetch recent transactions
+        const response = await api.get('/transactions/recent');
+        setTransactions(response.data);
+      } catch (error) {
+        console.error('Failed to fetch transactions:', error);
+      } finally {
+        setTransactionsLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchTransactions();
+    }
+  }, [user?.balance]); // Trigger a fetch when the user's balance changes
 
   const handleAddAmount = async (e) => {
     e.preventDefault();
@@ -29,15 +50,12 @@ const AddAmount = () => {
     setLoading(true);
 
     try {
-      // Backend API ko call karen naye balance ke liye
-      // Ye backend route `api/users/add-balance` hoga jaisa pehle bataya gaya hai
       const response = await api.post('/users/add-balance', { amount: Number(amount) });
 
-      // API se updated user data (jis mein naya balance hoga) lein aur state update karen
       updateUser(response.data);
 
       alert(`Successfully added $${amount} to your wallet.`);
-      setAmount(''); // Input field ko clear karen
+      setAmount('');
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to add amount.';
       alert(errorMessage);
@@ -87,12 +105,12 @@ const AddAmount = () => {
                     type="button"
                     onClick={() => handleQuickAmount(value)}
                     className={`
-                                            py-2 px-4 rounded-lg border transition-colors
-                                            ${amount == value
+                      py-2 px-4 rounded-lg border transition-colors
+                      ${amount == value
                         ? 'bg-blue-50 border-blue-500 text-blue-600'
                         : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
                       }
-                                        `}
+                    `}
                   >
                     ${value}
                   </button>
@@ -137,7 +155,7 @@ const AddAmount = () => {
             <button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
-              disabled={loading} // Loading state par button ko disable karen
+              disabled={loading}
             >
               <Plus className="w-5 h-5 mr-2" />
               {loading ? 'Adding...' : 'Add Amount'}
@@ -147,35 +165,46 @@ const AddAmount = () => {
 
         {/* Wallet Info */}
         <div className="space-y-6">
-          {/* Current Balance */}
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white">
-            <h3 className="text-lg font-medium mb-2">Current Balance</h3>
-            {/* User ka balance yahan show karen */}
-            <p className="text-3xl font-bold">${user?.balance?.toFixed(2) || '0.00'}</p>                    </div>
+          {/* Current Balance - Stylish Design */}
+          <div className="bg-gradient-to-br from-blue-600 to-purple-700 text-white rounded-xl shadow-lg p-8">
+            <p className="text-sm font-medium opacity-80 mb-2">Your Current Balance</p>
+            <div className="flex items-end">
+              <span className="text-4xl font-bold">$</span>
+              <span className="text-5xl font-extrabold tracking-wide ml-1">
+                {user?.balance?.toFixed(2) || '0.00'}
+              </span>
+            </div>
+          </div>
 
           {/* Recent Transactions */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Transactions</h3>
-            {/* Dummy transaction data ki bajaye actual API se data fetch karen */}
-            <div className="space-y-3">
-              {[
-                { type: 'Added', amount: '+$100', date: '2 hours ago' },
-                { type: 'Purchase', amount: '-$25', date: '1 day ago' },
-                { type: 'Added', amount: '+$50', date: '3 days ago' },
-                { type: 'Purchase', amount: '-$75', date: '5 days ago' }
-              ].map((transaction, index) => (
-                <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                  <div>
-                    <p className="font-medium text-gray-900">{transaction.type}</p>
-                    <p className="text-sm text-gray-500">{transaction.date}</p>
+            
+            {/* ✅ Dynamic transaction list */}
+            {transactionsLoading ? (
+              <div className="flex items-center justify-center py-6 text-gray-500">
+                <RefreshCw className="w-5 h-5 animate-spin mr-2" />
+                <span>Loading transactions...</span>
+              </div>
+            ) : transactions.length > 0 ? (
+              <div className="space-y-3">
+                {transactions.map((transaction) => (
+                  <div key={transaction._id} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                    <div>
+                      <p className="font-medium text-gray-900 capitalize">{transaction.type}</p>
+                      <p className="text-sm text-gray-500">{new Date(transaction.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <span 
+                      className={`font-bold ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}
+                    >
+                      {transaction.amount > 0 ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
+                    </span>
                   </div>
-                  <span className={`font-bold ${transaction.amount.startsWith('+') ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                    {transaction.amount}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm text-center py-4">No transactions found.</p>
+            )}
           </div>
         </div>
       </div>

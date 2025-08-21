@@ -1,17 +1,19 @@
 const express = require('express');
-const { 
-    registerUser, 
-    authUser, 
+const router = express.Router();
+const {
+    registerUser,
+    authUser,
     getUserProfile,
-    addBalance  // ✅ addBalance function ko import karen
+    addBalance,
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
-const router = express.Router();
 
+// Public routes for user authentication
 router.post('/signup', registerUser);
 router.post('/login', authUser);
+
+// Private routes that require a valid JWT token
 router.get('/profile', protect, getUserProfile);
-// ✅ Naya route: Balance add karne ke liye
-router.post('/add-balance',protect, addBalance); 
+router.post('/add-balance', protect, addBalance);
 
 module.exports = router;

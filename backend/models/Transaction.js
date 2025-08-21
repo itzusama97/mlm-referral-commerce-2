@@ -1,44 +1,31 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose")
+
 
 const transactionSchema = new mongoose.Schema({
-    // Is user ki ID jo transaction kar raha hai
     buyer: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // User model se reference
+        ref: 'User',
         required: true,
-        
     },
-    // Transaction ki total amount
-    totalAmount: {
+    type: { // ✅ new field: transaction ka type
+        type: String,
+        enum: ["buy", "add-balance"], // dono cases cover
+        required: true,
+    },
+    amount: { // ✅ new field: simple transaction amount
         type: Number,
         required: true,
     },
-    // Total commission amount (totalAmount ka 20%)
     totalCommission: {
         type: Number,
-        required: true,
+        default: 0, // add-balance case me commission nahi hoga
     },
-    // Referral commissions ki details
     commissions: [{
-        level: {
-            type: Number,
-            required: true,
-        },
-        user: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User',
-            required: true,
-            
-        },
-        commissionAmount: {
-            type: Number,
-            required: true,
-        }
+        level: Number,
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        commissionAmount: Number
     }],
-}, {
-    timestamps: true,
-});
+}, { timestamps: true });
 
 const Transaction = mongoose.model('Transaction', transactionSchema);
-
-module.exports = Transaction;
+module.exports = Transaction;   

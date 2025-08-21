@@ -1,13 +1,15 @@
+// This is the main server file that brings everything together.
+const mongoose = require("mongoose")
 const express = require('express');
 const dotenv = require('dotenv');
-const mongoose = require('mongoose');
-const cors = require('cors');
+const cors = require('cors'); // Required for frontend-backend communication
+
+// Import both user and transaction routes
 const userRoutes = require('./routes/userRoutes');
-const transactionRoutes = require('./routes/transactionRoutes'); // New: Import transaction routes
+const transactionRoutes = require('./routes/transactionRoutes');
 
+// Load environment variables from .env file
 dotenv.config();
-
-const app = express();
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -20,20 +22,28 @@ const connectDB = async () => {
     }
 };
 
+// Connect to the database
 connectDB();
 
-// Middleware
-app.use(express.json());
+// Initialize the Express app
+const app = express();
+
+// Use CORS middleware to allow requests from your frontend
 app.use(cors());
 
-// Routes
-app.use('/api/users', userRoutes);
-app.use('/api/transactions', transactionRoutes); // New: Add transaction routes
+// Body parser middleware to handle JSON data
+app.use(express.json());
 
-// Root route
-app.get('/', (req, res) => {
-    res.send('API is running...');
+// Main API routes
+// The server will use these routes to handle incoming requests
+app.use('/api/users', userRoutes);
+app.use('/api/transactions', transactionRoutes);
+
+// Define the port from environment variables or default to 5000
+const PORT = process.env.PORT || 8000;
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`Server running in mode on port ${PORT}`);
 });
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

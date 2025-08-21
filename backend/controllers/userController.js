@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // You might need this for matchPassword
+const bcrypt = require('bcryptjs');
 
 // Generate unique 6-digit referral code
 const generateReferralCode = (length = 6) => {
@@ -36,19 +36,25 @@ const registerUser = async (req, res) => {
     const { name, email, password, referredBy } = req.body;
 
     try {
+        // Check if user already exists
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
         }
         
-        let validReferrer = null;
-        if (referredBy) {
-            validReferrer = await User.findOne({ referralCode: referredBy });
+        // Handle referral validation
+        let validReferrerId = null;
+        
+        // Only check for referrer if referredBy is provided and not empty
+        if (referredBy && referredBy.trim() !== '') {
+            const validReferrer = await User.findOne({ referralCode: referredBy.trim() });
             if (!validReferrer) {
                 return res.status(400).json({ message: 'Invalid referral code!' });
             }
+            validReferrerId = validReferrer._id; // Store the ObjectId, not the referral code
         }
 
+        // Generate unique referral code for the new user
         let referralCode;
         let isCodeUnique = false;
         while (!isCodeUnique) {
@@ -59,29 +65,42 @@ const registerUser = async (req, res) => {
             }
         }
 
-        const user = await User.create({ 
-            name,
-            email,
+        // Create user data object
+        const userData = {
+            name: name.trim(),
+            email: email.trim().toLowerCase(),
             password,
-            referredBy: validReferrer ? validReferrer._id : null,
             referralCode,
-            balance: 0, // ✅ Naya user register hone par balance 0 set hoga
-        });
+            balance: 0,
+        };
+
+        // Only add referredBy if we have a valid referrer
+        if (validReferrerId) {
+            userData.referredBy = validReferrerId;
+        }
+        // If no referrer, don't set referredBy field at all (it will default to null)
+
+        // Create the user
+        const user = await User.create(userData);
 
         if (user) {
+            // Populate the referredBy field to get referral code for response
+            const populatedUser = await User.findById(user._id).populate('referredBy', 'referralCode');
+            
             res.status(201).json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                referredBy: validReferrer ? validReferrer.referralCode : null,
-                referralCode: user.referralCode,
-                balance: user.balance, // ✅ Balance field shamil kiya gaya
-                token: generateToken(user._id),
+                _id: populatedUser._id,
+                name: populatedUser.name,
+                email: populatedUser.email,
+                referredBy: populatedUser.referredBy ? populatedUser.referredBy.referralCode : null,
+                referralCode: populatedUser.referralCode,
+                balance: populatedUser.balance,
+                token: generateToken(populatedUser._id),
             });
         } else {
             res.status(400).json({ message: 'Invalid user data' });
         }
     } catch (error) {
+        console.error('Registration error:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -93,7 +112,7 @@ const authUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const user = await User.findOne({ email }).populate('referredBy', 'referralCode');
+        const user = await User.findOne({ email: email.toLowerCase() }).populate('referredBy', 'referralCode');
 
         if (user && (await user.matchPassword(password))) {
             res.json({
@@ -102,13 +121,14 @@ const authUser = async (req, res) => {
                 email: user.email,
                 referredBy: user.referredBy ? user.referredBy.referralCode : null,
                 referralCode: user.referralCode,
-                balance: user.balance, // ✅ Balance field shamil kiya gaya
+                balance: user.balance,
                 token: generateToken(user._id),
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
         }
     } catch (error) {
+        console.error('Login error:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -117,19 +137,24 @@ const authUser = async (req, res) => {
 // @route   GET /api/users/profile
 // @access  Private
 const getUserProfile = async (req, res) => {
-    const user = await User.findById(req.user._id).populate('referredBy', 'referralCode');
+    try {
+        const user = await User.findById(req.user._id).populate('referredBy', 'referralCode');
 
-    if (user) {
-        res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            referredBy: user.referredBy ? user.referredBy.referralCode : null,
-            referralCode: user.referralCode,
-            balance: user.balance, // ✅ Balance field shamil kiya gaya
-        });
-    } else {
-        res.status(404).json({ message: 'User not found' });
+        if (user) {
+            res.json({
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                referredBy: user.referredBy ? user.referredBy.referralCode : null,
+                referralCode: user.referralCode,
+                balance: user.balance,
+            });
+        } else {
+            res.status(404).json({ message: 'User not found' });
+        }
+    } catch (error) {
+        console.error('Profile fetch error:', error);
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -138,15 +163,35 @@ const getUserProfile = async (req, res) => {
 // @access  Private
 const addBalance = async (req, res) => {
     const { amount } = req.body;
+    
     try {
+        // Validate amount
+        if (!amount || amount <= 0) {
+            return res.status(400).json({ message: 'Please provide a valid amount' });
+        }
+
         const user = await User.findById(req.user._id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
+
+        // Add amount to current balance
         user.balance = (user.balance || 0) + Number(amount);
         await user.save();
-        res.status(200).json(user);
+
+        // Return updated user data
+        const updatedUser = await User.findById(user._id).populate('referredBy', 'referralCode');
+        
+        res.status(200).json({
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            referredBy: updatedUser.referredBy ? updatedUser.referredBy.referralCode : null,
+            referralCode: updatedUser.referralCode,
+            balance: updatedUser.balance,
+        });
     } catch (error) {
+        console.error('Add balance error:', error);
         res.status(500).json({ message: error.message });
     }
 };
