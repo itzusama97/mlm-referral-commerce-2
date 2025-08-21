@@ -1,6 +1,8 @@
 const User = require('../models/User');
+const Transaction = require('../models/Transaction'); // ✅ Import Transaction model
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+
 
 // Generate unique 6-digit referral code
 const generateReferralCode = (length = 6) => {
@@ -86,7 +88,7 @@ const registerUser = async (req, res) => {
         if (user) {
             // Populate the referredBy field to get referral code for response
             const populatedUser = await User.findById(user._id).populate('referredBy', 'referralCode');
-            
+
             res.status(201).json({
                 _id: populatedUser._id,
                 name: populatedUser.name,
@@ -158,42 +160,68 @@ const getUserProfile = async (req, res) => {
     }
 };
 
-// @desc    Add balance to user's wallet
-// @route   POST /api/users/add-balance
-// @access  Private
-const addBalance = async (req, res) => {
-    const { amount } = req.body;
-    
-    try {
-        // Validate amount
-        if (!amount || amount <= 0) {
-            return res.status(400).json({ message: 'Please provide a valid amount' });
-        }
+// // @desc    Add balance to user account + create transaction
+// // @route   POST /api/users/addbalance
+// // @access  Private
+// const addBalance = async (req, res) => {
+//   const { amount } = req.body;
 
-        const user = await User.findById(req.user._id);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
+//   if (!amount || amount <= 0) {
+//     res.status(400);
+//     throw new Error("Please provide a valid amount");
+//   }
 
-        // Add amount to current balance
-        user.balance = (user.balance || 0) + Number(amount);
-        await user.save();
+//   const user = await User.findById(req.user._id);
 
-        // Return updated user data
-        const updatedUser = await User.findById(user._id).populate('referredBy', 'referralCode');
-        
-        res.status(200).json({
-            _id: updatedUser._id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            referredBy: updatedUser.referredBy ? updatedUser.referredBy.referralCode : null,
-            referralCode: updatedUser.referralCode,
-            balance: updatedUser.balance,
-        });
-    } catch (error) {
-        console.error('Add balance error:', error);
-        res.status(500).json({ message: error.message });
-    }
-};
+//   if (!user) {
+//     res.status(404);
+//     throw new Error("User not found");
+//   }
 
-module.exports = { registerUser, authUser, getUserProfile, addBalance };
+//   // ✅ Update balance
+//   user.balance += amount;
+//   await user.save();
+
+//   // ✅ Create a new transaction
+//   const transaction = await Transaction.create({
+//     user: req.user._id,
+//     type: "add_balance",
+//     amount,
+//   });
+
+//   // ✅ Fetch last 4 add-balance transactions for UI
+//   const lastTransactions = await Transaction.find({
+//     user: req.user._id,
+//     type: "add_balance",
+//   })
+//     .sort({ createdAt: -1 })
+//     .limit(4);
+
+//   res.status(201).json({
+//     message: "Balance added successfully",
+//     newBalance: user.balance,
+//     transaction,
+//     lastTransactions,
+//   });
+// };
+
+// // If you want a separate endpoint for add-balance history specifically:
+// const getAddAmountHistory = async (req, res) => {
+//     try {
+//         const addAmountHistory = await Transaction.find({ 
+//             user: req.user._id,
+//             type: "add-balance"
+//         })
+//             .sort({ createdAt: -1 })
+//             .limit(4)
+//             .select('amount createdAt')
+//             .lean();
+
+//         res.json(addAmountHistory);
+//     } catch (error) {
+//         console.error("Error fetching add amount history:", error);
+//         res.status(500).json({ message: "Server error" });
+//     }
+// };
+
+module.exports = { registerUser, authUser, getUserProfile };

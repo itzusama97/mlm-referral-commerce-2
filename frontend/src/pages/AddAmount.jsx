@@ -9,9 +9,7 @@ const AddAmount = () => {
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [loading, setLoading] = useState(false);
-  // ✅ New state to hold the list of transactions
   const [transactions, setTransactions] = useState([]);
-  // ✅ New state for transaction loading
   const [transactionsLoading, setTransactionsLoading] = useState(true);
 
   const quickAmounts = [10, 25, 50, 100, 250, 500];
@@ -20,25 +18,25 @@ const AddAmount = () => {
     setAmount(value.toString());
   };
 
-  // ✅ New useEffect hook to fetch transactions on component load and balance change
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        setTransactionsLoading(true);
-        // New API call to fetch recent transactions
-        const response = await api.get('/transactions/recent');
-        setTransactions(response.data);
-      } catch (error) {
-        console.error('Failed to fetch transactions:', error);
-      } finally {
-        setTransactionsLoading(false);
-      }
-    };
+  // Fetch transactions function
+  const fetchTransactions = async () => {
+    try {
+      setTransactionsLoading(true);
+      const response = await api.get('/add-balance/recent');
+      setTransactions(response.data);
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
 
+  // Fetch transactions on component mount
+  useEffect(() => {
     if (user) {
       fetchTransactions();
     }
-  }, [user?.balance]); // Trigger a fetch when the user's balance changes
+  }, [user]);
 
   const handleAddAmount = async (e) => {
     e.preventDefault();
@@ -50,12 +48,21 @@ const AddAmount = () => {
     setLoading(true);
 
     try {
-      const response = await api.post('/users/add-balance', { amount: Number(amount) });
+      const response = await api.post('/add-balance/', { 
+        amount: Number(amount) 
+      });
 
-      updateUser(response.data);
+      // Update user balance in context
+      updateUser({ 
+        ...user, 
+        balance: user.balance + Number(amount) 
+      });
 
       alert(`Successfully added $${amount} to your wallet.`);
       setAmount('');
+      
+      // Refresh transactions after successful balance addition
+      fetchTransactions();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to add amount.';
       alert(errorMessage);
@@ -165,7 +172,7 @@ const AddAmount = () => {
 
         {/* Wallet Info */}
         <div className="space-y-6">
-          {/* Current Balance - Stylish Design */}
+          {/* Current Balance */}
           <div className="bg-gradient-to-br from-blue-600 to-purple-700 text-white rounded-xl shadow-lg p-8">
             <p className="text-sm font-medium opacity-80 mb-2">Your Current Balance</p>
             <div className="flex items-end">
@@ -176,11 +183,19 @@ const AddAmount = () => {
             </div>
           </div>
 
-          {/* Recent Transactions */}
+          {/* Recent Add Balance History */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Recent Transactions</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Recent Top-ups</h3>
+              <button 
+                onClick={fetchTransactions}
+                className="text-blue-600 hover:text-blue-700 transition-colors"
+                disabled={transactionsLoading}
+              >
+                <RefreshCw className={`w-4 h-4 ${transactionsLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
             
-            {/* ✅ Dynamic transaction list */}
             {transactionsLoading ? (
               <div className="flex items-center justify-center py-6 text-gray-500">
                 <RefreshCw className="w-5 h-5 animate-spin mr-2" />
@@ -189,21 +204,33 @@ const AddAmount = () => {
             ) : transactions.length > 0 ? (
               <div className="space-y-3">
                 {transactions.map((transaction) => (
-                  <div key={transaction._id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                    <div>
-                      <p className="font-medium text-gray-900 capitalize">{transaction.type}</p>
-                      <p className="text-sm text-gray-500">{new Date(transaction.createdAt).toLocaleDateString()}</p>
+                  <div key={transaction._id} className="flex items-center justify-between py-3 px-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Money Added</p>
+                      <p className="text-sm text-gray-500">
+                        Added to wallet • {new Date(transaction.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </p>
                     </div>
-                    <span 
-                      className={`font-bold ${transaction.amount > 0 ? 'text-green-600' : 'text-red-600'}`}
-                    >
-                      {transaction.amount > 0 ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
-                    </span>
+                    <div className="text-right">
+                      <span className="font-bold text-lg text-green-600">
+                        +${transaction.amount.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-sm text-center py-4">No transactions found.</p>
+              <div className="text-center py-8">
+                <div className="text-gray-400 mb-2">
+                  <DollarSign className="w-12 h-12 mx-auto opacity-50" />
+                </div>
+                <p className="text-gray-500 text-sm">No top-ups yet.</p>
+                <p className="text-gray-400 text-xs">Your top-up history will appear here.</p>
+              </div>
             )}
           </div>
         </div>

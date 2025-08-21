@@ -7,6 +7,8 @@ const cors = require('cors'); // Required for frontend-backend communication
 // Import both user and transaction routes
 const userRoutes = require('./routes/userRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
+const addBalanceRoutes = require("./routes/addBalanceRoutes");
+
 
 // Load environment variables from .env file
 dotenv.config();
@@ -38,6 +40,8 @@ app.use(express.json());
 // The server will use these routes to handle incoming requests
 app.use('/api/users', userRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use("/api/add-balance", addBalanceRoutes);
+
 
 // Define the port from environment variables or default to 5000
 const PORT = process.env.PORT || 8000;

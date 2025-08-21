@@ -1,19 +1,21 @@
-const express = require('express');
-const router = express.Router();
-const {
+    const express = require("express");
+    const router = express.Router();
+    const {
     registerUser,
     authUser,
     getUserProfile,
-    addBalance,
-} = require('../controllers/userController');
-const { protect } = require('../middleware/authMiddleware');
+    // addBalance,
+    // getAddAmountHistory
+    } = require("../controllers/userController");
+    const { protect } = require("../middleware/authMiddleware");
 
-// Public routes for user authentication
-router.post('/signup', registerUser);
-router.post('/login', authUser);
+    // Auth
+    router.post("/signup", registerUser);
+    router.post("/login", authUser);
+    router.get("/profile", protect, getUserProfile);
 
-// Private routes that require a valid JWT token
-router.get('/profile', protect, getUserProfile);
-router.post('/add-balance', protect, addBalance);
+    // // Balance
+    // router.post("/addbalance", protect, addBalance);
+    // router.get("/getAddAmountHistory", protect, getAddAmountHistory); // ✅ add this
 
-module.exports = router;
+    module.exports = router;

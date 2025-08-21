@@ -9,9 +9,9 @@ const COMMISSION_PERCENTAGES = {
     '8-10': 0.03,
 };
 
-// @desc    Create a new transaction and distribute commissions
-// @route   POST /api/transactions/buy
-// @access  Private (User should be logged in)
+// @desc    Create a new transaction and distribute commissions
+// @route   POST /api/transactions/buy
+// @access  Private (User should be logged in)
 const createTransaction = async (req, res) => {
     // User ID who is making the transaction, this will come from auth middleware
     const buyerId = req.user._id;
@@ -89,17 +89,14 @@ const createTransaction = async (req, res) => {
             }
 
             // Step 3: Create a new transaction record
-           const transaction = new Transaction({
-    buyer: buyerId,
-    type: "buy", // ✅ mark transaction as "buy"
-    amount, // ✅ save original amount
-    totalCommission,
-    commissions: commissionsArray,
-});
-await transaction.save({ session });
-
-
-
+            const transaction = new Transaction({
+                buyer: buyerId,
+                type: "buy", // ✅ mark transaction as "buy"
+                amount: -amount, // ✅ Negative amount since money is going out
+                totalCommission,
+                commissions: commissionsArray,
+            });
+            await transaction.save({ session });
 
             // Send a success response after the transaction is committed
             res.status(201).json({
@@ -117,18 +114,23 @@ await transaction.save({ session });
     }
 };
 
-// 🔹 Recent transaction history fetch karne ka function
+// @desc    Get recent transaction history (last 4 transactions)
+// @route   GET /api/transactions/recent
+// @access  Private
 const getRecentTransactions = async (req, res) => {
-  try {
-    const transactions = await Transaction.find({ buyer: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(10);
+    try {
+        // Fetch last 4 transactions for the logged-in user
+        const transactions = await Transaction.find({ buyer: req.user._id })
+            .sort({ createdAt: -1 })
+            .limit(4) // ✅ Only show recent 4 transactions
+            .select('type amount createdAt totalCommission') // Select only needed fields
+            .lean(); // For better performance
 
-    res.json(transactions);
-  } catch (error) {
-    console.error("Error fetching transactions:", error);
-    res.status(500).json({ message: "Server error" });
-  }
+        res.json(transactions);
+    } catch (error) {
+        console.error("Error fetching transactions:", error);
+        res.status(500).json({ message: "Server error" });
+    }
 };
 
 
