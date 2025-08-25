@@ -3,47 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Star, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
-
-// Simple in-file message box with auto-dismiss functionality
-const MessageBox = ({ type, message, onClose }) => {
-  // Auto-dismiss after 2 seconds
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => {
-        onClose();
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [message, onClose]);
-
-  if (!message) return null;
-  const isSuccess = type === 'success';
-  const bgColor = isSuccess ? 'bg-green-500' : 'bg-red-500';
-  const title = isSuccess ? 'Success!' : 'Error!';
-
-  return (
-    <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 p-4 rounded-lg shadow-lg text-white z-50 transition-all duration-300 ${bgColor}`}>
-      <div className="flex justify-between items-center">
-        <div>
-          <h4 className="font-bold">{title}</h4>
-          <p className="text-sm">{message}</p>
-        </div>
-        <button onClick={onClose} className="ml-4 text-white hover:text-gray-200">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-    </div>
-  );
-};
+import { toast } from 'react-toastify';
 
 const BuyProduct = () => {
   const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState({});
-  const [message, setMessage] = useState(null);
-  const [messageType, setMessageType] = useState('');
 
   // Transaction state (unchanged)
   const [transactions, setTransactions] = useState([]);
@@ -75,16 +39,14 @@ const BuyProduct = () => {
     }
   }, [user?.balance]);
 
-  // Buy flow (unchanged)
+  // Buy flow with toastify
   const handleBuyProduct = async (product) => {
     if (!user || user.balance < product.price) {
-      setMessageType('error');
-      setMessage('Insufficient balance. Please add funds to your wallet.');
+      toast.error('Insufficient balance. Please add funds to your wallet.');
       return;
     }
 
     setLoading((prev) => ({ ...prev, [product.id]: true }));
-    setMessage(null);
 
     try {
       await api.post('/transactions/buy', { amount: product.price });
@@ -93,11 +55,8 @@ const BuyProduct = () => {
       const updatedProfileResponse = await api.get('/users/profile');
       updateUser(updatedProfileResponse.data);
 
-      setMessageType('success');
-      setMessage(
-        `Successfully purchased ${product.name}! Your new balance is $${updatedProfileResponse.data.balance.toFixed(
-          2
-        )}.`
+      toast.success(
+        `Successfully purchased ${product.name}! Your new balance is $${updatedProfileResponse.data.balance.toFixed(2)}.`
       );
 
       // refresh transactions list
@@ -105,8 +64,7 @@ const BuyProduct = () => {
       setTransactions(txRes.data.slice(0, 4));
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to complete transaction.';
-      setMessageType('error');
-      setMessage(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading((prev) => ({ ...prev, [product.id]: false }));
     }
@@ -115,8 +73,6 @@ const BuyProduct = () => {
   return (
     <div className="max-w-7xl mx-auto font-sans p-4 sm:p-6 lg:p-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Buy Products</h1>
-
-      <MessageBox type={messageType} message={message} onClose={() => setMessage(null)} />
 
       {/* Current Balance */}
       <div className="bg-white rounded-xl shadow-sm border p-6 max-w-sm mb-8">

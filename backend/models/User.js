@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema({
         required: true,
     },
     referredBy: {
-        type: mongoose.Schema.Types.ObjectId,  // ✅ Changed from String to ObjectId
+        type: mongoose.Schema.Types.ObjectId,  
         ref: 'User',                           // ✅ Added reference to User model
         default: null,
     },

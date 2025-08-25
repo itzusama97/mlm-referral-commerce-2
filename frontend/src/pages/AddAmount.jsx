@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, CreditCard, Wallet, DollarSign, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
+import { toast } from 'react-toastify';
 
 const AddAmount = () => {
   const { user, updateUser } = useAuth();
@@ -41,7 +42,7 @@ const AddAmount = () => {
   const handleAddAmount = async (e) => {
     e.preventDefault();
     if (!amount || amount <= 0) {
-      alert('Please enter a valid amount');
+      toast.error('Please enter a valid amount');
       return;
     }
 
@@ -58,14 +59,14 @@ const AddAmount = () => {
         balance: user.balance + Number(amount) 
       });
 
-      alert(`Successfully added $${amount} to your wallet.`);
+      toast.success(`Successfully added $${amount} to your wallet!`);
       setAmount('');
       
       // Refresh transactions after successful balance addition
       fetchTransactions();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to add amount.';
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
