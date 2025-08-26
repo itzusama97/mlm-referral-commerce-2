@@ -1,4 +1,4 @@
-// src/components/Pages/BuyProduct.jsx
+// src/pages/BuyProduct.jsx
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Star, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';

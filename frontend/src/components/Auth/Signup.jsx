@@ -1,6 +1,6 @@
 // src/components/Auth/Signup.js
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, UserPlus, Mail, Lock, User, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Card from '../Layout/Card';
@@ -15,6 +15,15 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { signup, loading, error } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const referral = params.get('ref');
+    if (referral) {
+      setFormData((prev) => ({ ...prev, referredBy: referral }));
+    }
+  }, [location]);
 
   const handleChange = (e) => {
     setFormData({
@@ -31,7 +40,7 @@ const Signup = () => {
       formData.password,
       formData.referredBy || undefined
     );
-    
+
     if (result.success) {
       navigate('/login');
     }

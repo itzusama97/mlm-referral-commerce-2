@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Wallet, DollarSign, ShoppingCart, User } from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Area,
+  AreaChart
+} from 'recharts';
 import { api } from '../utils/api';
 
 const Analytics = () => {
@@ -58,6 +71,43 @@ const Analytics = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  // Format month name for charts
+  const formatMonthYear = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: '2-digit',
+      month: 'short'
+    });
+  };
+
+  // Custom tooltip for currency values
+  const CustomTooltip = ({ active, payload, label, isCurrency = true }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-900">{label}</p>
+          {payload.map((entry, index) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {`${entry.dataKey}: ${isCurrency ? formatCurrency(entry.value) : formatNumber(entry.value)}`}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Process monthly data for charts
+  const processMonthlyData = (data) => {
+    if (!data || !Array.isArray(data)) return [];
+    
+    return data.map(item => ({
+      ...item,
+      monthLabel: formatMonthYear(item.month || item.date),
+      purchases: item.purchases || item.amount || 0,
+      commissions: item.commissions || item.commission || 0
+    })).sort((a, b) => new Date(a.month || a.date) - new Date(b.month || b.date));
   };
 
   if (loading) {
@@ -141,6 +191,10 @@ const Analytics = () => {
     }
   ];
 
+  // Process chart data
+  const monthlyPurchases = processMonthlyData(analyticsData.monthlyData);
+  const monthlyCommissions = processMonthlyData(analyticsData.commissionData);
+
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header with User Info */}
@@ -198,47 +252,134 @@ const Analytics = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Monthly Purchases Chart */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">My Monthly Purchases</h3>
-          <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-            {analyticsData.monthlyData && analyticsData.monthlyData.length > 0 ? (
-              <div className="text-center">
-                <BarChart3 className="w-12 h-12 text-green-400 mx-auto mb-2" />
-                <p className="text-gray-600 font-medium">Purchase History Available</p>
-                <p className="text-sm text-gray-500">{analyticsData.monthlyData.length} months of data</p>
-                <p className="text-xs text-gray-400 mt-2">Chart visualization coming soon</p>
-              </div>
-            ) : (
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">My Monthly Purchases</h3>
+            <BarChart3 className="w-6 h-6 text-green-600" />
+          </div>
+          
+          {monthlyPurchases && monthlyPurchases.length > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyPurchases}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis 
+                    dataKey="monthLabel" 
+                    tick={{ fontSize: 12 }}
+                    stroke="#666"
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12 }}
+                    stroke="#666"
+                    tickFormatter={(value) => `$${value}`}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar 
+                    dataKey="purchases" 
+                    fill="#10b981" 
+                    radius={[4, 4, 0, 0]}
+                    name="Purchases"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
               <div className="text-center">
                 <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                 <p className="text-gray-500">No purchase history yet</p>
                 <p className="text-sm text-gray-400">Start making purchases to see trends</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Monthly Commissions Chart */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">My Monthly Commissions</h3>
-          <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-            {analyticsData.commissionData && analyticsData.commissionData.length > 0 ? (
-              <div className="text-center">
-                <TrendingUp className="w-12 h-12 text-purple-400 mx-auto mb-2" />
-                <p className="text-gray-600 font-medium">Commission Data Available</p>
-                <p className="text-sm text-gray-500">{analyticsData.commissionData.length} months of earnings</p>
-                <p className="text-xs text-gray-400 mt-2">Chart visualization coming soon</p>
-              </div>
-            ) : (
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">My Monthly Commissions</h3>
+            <TrendingUp className="w-6 h-6 text-purple-600" />
+          </div>
+          
+          {monthlyCommissions && monthlyCommissions.length > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlyCommissions}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis 
+                    dataKey="monthLabel" 
+                    tick={{ fontSize: 12 }}
+                    stroke="#666"
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12 }}
+                    stroke="#666"
+                    tickFormatter={(value) => `$${value}`}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="commissions"
+                    stroke="#8b5cf6"
+                    fill="#8b5cf6"
+                    fillOpacity={0.3}
+                    strokeWidth={2}
+                    name="Commissions"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
               <div className="text-center">
                 <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                 <p className="text-gray-500">No commission earnings yet</p>
                 <p className="text-sm text-gray-400">Invite friends to start earning</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
-      
+
+      {/* Combined Overview Chart */}
+      {monthlyPurchases.length > 0 && monthlyCommissions.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Purchases vs Commissions Overview</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyPurchases}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="monthLabel" 
+                  tick={{ fontSize: 12 }}
+                  stroke="#666"
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  stroke="#666"
+                  tickFormatter={(value) => `$${value}`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="purchases"
+                  stroke="#10b981"
+                  strokeWidth={3}
+                  dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                  name="Purchases"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="commissions"
+                  stroke="#8b5cf6"
+                  strokeWidth={3}
+                  dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
+                  name="Commissions"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

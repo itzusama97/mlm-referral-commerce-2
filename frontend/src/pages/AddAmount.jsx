@@ -1,4 +1,4 @@
-// src/components/Pages/AddAmount.js
+// src/pages/AddAmount.js
 import React, { useState, useEffect } from 'react';
 import { Plus, CreditCard, Wallet, DollarSign, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';

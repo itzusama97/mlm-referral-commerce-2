@@ -1,6 +1,5 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-// const AddBalance = require('../models/AddBalance'); // Comment this line if AddBalance model doesn't exist yet
 
 // @desc    Get user analytics data for personal dashboard
 // @route   GET /api/analytics/dashboard
@@ -36,8 +35,8 @@ const getDashboardAnalytics = async (req, res) => {
         // 4. User's Transaction Count
         const transactionCount = await Transaction.countDocuments({ buyer: userId, type: "buy" });
 
-        // 5. Monthly Purchase Data (user's own purchases)
-        const monthlyData = await Transaction.aggregate([
+        // 5. Monthly Purchase Data (user's own purchases) - FIXED FORMAT
+        const monthlyPurchaseData = await Transaction.aggregate([
             { $match: { buyer: userId, type: "buy" } },
             {
                 $group: {
@@ -50,11 +49,36 @@ const getDashboardAnalytics = async (req, res) => {
                 }
             },
             { $sort: { "_id.year": -1, "_id.month": -1 } },
-            { $limit: 12 }
+            { $limit: 12 },
+            {
+                $project: {
+                    month: {
+                        $dateFromString: {
+                            dateString: {
+                                $concat: [
+                                    { $toString: "$_id.year" },
+                                    "-",
+                                    { 
+                                        $cond: {
+                                            if: { $lt: ["$_id.month", 10] },
+                                            then: { $concat: ["0", { $toString: "$_id.month" }] },
+                                            else: { $toString: "$_id.month" }
+                                        }
+                                    },
+                                    "-01"
+                                ]
+                            }
+                        }
+                    },
+                    purchases: "$totalAmount",
+                    amount: "$totalAmount", // Alternative field name
+                    count: 1
+                }
+            }
         ]);
 
-        // 6. Monthly Commission Data (commissions earned by user)
-        const commissionData = await Transaction.aggregate([
+        // 6. Monthly Commission Data (commissions earned by user) - FIXED FORMAT
+        const monthlyCommissionData = await Transaction.aggregate([
             { $unwind: "$commissions" },
             { $match: { "commissions.user": userId } },
             {
@@ -68,11 +92,35 @@ const getDashboardAnalytics = async (req, res) => {
                 }
             },
             { $sort: { "_id.year": -1, "_id.month": -1 } },
-            { $limit: 12 }
+            { $limit: 12 },
+            {
+                $project: {
+                    month: {
+                        $dateFromString: {
+                            dateString: {
+                                $concat: [
+                                    { $toString: "$_id.year" },
+                                    "-",
+                                    { 
+                                        $cond: {
+                                            if: { $lt: ["$_id.month", 10] },
+                                            then: { $concat: ["0", { $toString: "$_id.month" }] },
+                                            else: { $toString: "$_id.month" }
+                                        }
+                                    },
+                                    "-01"
+                                ]
+                            }
+                        }
+                    },
+                    commissions: "$totalCommission",
+                    commission: "$totalCommission", // Alternative field name
+                    count: 1
+                }
+            }
         ]);
 
-        // Calculate percentage changes (simple static values for now)
-        // You can enhance this later to calculate actual percentage changes
+        // Calculate percentage changes (you can enhance this with actual calculations)
         const responseData = {
             stats: {
                 totalSales: {
@@ -96,8 +144,8 @@ const getDashboardAnalytics = async (req, res) => {
                     trend: 'up'
                 }
             },
-            monthlyData: monthlyData || [],
-            commissionData: commissionData || [],
+            monthlyData: monthlyPurchaseData || [],
+            commissionData: monthlyCommissionData || [],
             userInfo: {
                 name: user.name || '',
                 email: user.email || '',
@@ -106,7 +154,7 @@ const getDashboardAnalytics = async (req, res) => {
             }
         };
 
-        console.log('Sending analytics data:', JSON.stringify(responseData, null, 2)); // Debug log
+        console.log('Sending analytics data:', JSON.stringify(responseData, null, 2));
         res.json(responseData);
 
     } catch (error) {
