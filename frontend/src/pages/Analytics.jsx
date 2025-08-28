@@ -1,37 +1,45 @@
+import { api } from '../utils/api';   // make sure path is correct
+import { useAuth } from '../context/AuthContext';
+
 import React, { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, Wallet, DollarSign, ShoppingCart, User } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
+import { BarChart3, TrendingUp, Wallet, DollarSign, ShoppingCart, User, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
+import {
   LineChart,
   Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
   Area,
   AreaChart
 } from 'recharts';
-import { api } from '../utils/api';
 
+// Main component that serves as the entry point for the application.
+// This is the default export for the Canvas environment.
+export default function App() {
+  return <Analytics />;
+}
+
+// The Analytics dashboard component.
 const Analytics = () => {
+    const { user } = useAuth();   // for showing name/email etc.
+  // State to hold the analytics data, manage loading state, and handle errors.
   const [analyticsData, setAnalyticsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch analytics data from backend
-  useEffect(() => {
+useEffect(() => {
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/analytics/dashboard');
-        console.log('Analytics response:', response.data); // Debug log
-        setAnalyticsData(response.data);
-        setError(null); // Clear any previous errors
-      } catch (error) {
-        console.error('Analytics fetch error:', error);
-        setError('Failed to load analytics data');
+        setError(null);
+
+        const res = await api.get('/analytics/dashboard'); // 🔗 backend route
+        setAnalyticsData(res.data);
+      } catch (err) {
+        console.error('Analytics fetch error:', err);
+        setError(err.response?.data?.message || 'Failed to load analytics data');
       } finally {
         setLoading(false);
       }
@@ -40,7 +48,7 @@ const Analytics = () => {
     fetchAnalytics();
   }, []);
 
-  // Format currency
+  // Utility function to format currency values.
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -48,23 +56,12 @@ const Analytics = () => {
     }).format(amount || 0);
   };
 
-  // Format number
+  // Utility function to format numbers.
   const formatNumber = (num) => {
     return new Intl.NumberFormat('en-US').format(num || 0);
   };
 
-  // Get color classes for stats cards
-  const getColorClasses = (color) => {
-    const colors = {
-      green: 'bg-green-50 text-green-600 border-green-200',
-      blue: 'bg-blue-50 text-blue-600 border-blue-200',
-      purple: 'bg-purple-50 text-purple-600 border-purple-200',
-      orange: 'bg-orange-50 text-orange-600 border-orange-200'
-    };
-    return colors[color] || colors.blue;
-  };
-
-  // Format date
+  // Utility function to format date strings.
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -73,24 +70,27 @@ const Analytics = () => {
     });
   };
 
-  // Format month name for charts
-  const formatMonthYear = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: '2-digit',
-      month: 'short'
-    });
-  };
-
-  // Custom tooltip for currency values
-  const CustomTooltip = ({ active, payload, label, isCurrency = true }) => {
+  // Custom Tooltip component for Recharts, providing a styled popup on hover.
+  const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">{label}</p>
+        <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-white/20">
+          <p className="font-bold text-gray-900 mb-3 text-sm">{label}</p>
           {payload.map((entry, index) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {`${entry.dataKey}: ${isCurrency ? formatCurrency(entry.value) : formatNumber(entry.value)}`}
-            </p>
+            <div key={index} className="flex items-center justify-between gap-4 mb-2">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span className="text-sm text-gray-600 font-medium capitalize">
+                  {entry.dataKey.replace(/([A-Z])/g, ' $1').trim()}
+                </span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">
+                {entry.dataKey === 'transactionCount' ? formatNumber(entry.value) : formatCurrency(entry.value)}
+              </span>
+            </div>
           ))}
         </div>
       );
@@ -98,39 +98,32 @@ const Analytics = () => {
     return null;
   };
 
-  // Process monthly data for charts
-  const processMonthlyData = (data) => {
-    if (!data || !Array.isArray(data)) return [];
-    
-    return data.map(item => ({
-      ...item,
-      monthLabel: formatMonthYear(item.month || item.date),
-      purchases: item.purchases || item.amount || 0,
-      commissions: item.commissions || item.commission || 0
-    })).sort((a, b) => new Date(a.month || a.date) - new Date(b.month || b.date));
-  };
-
+  // Render a loading state while data is being fetched.
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading your analytics...</p>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-6"></div>
+          <p className="text-gray-600 font-semibold text-lg">Loading analytics...</p>
+          <p className="text-gray-500 text-sm mt-2">Preparing your dashboard</p>
         </div>
       </div>
     );
   }
 
+  // Render an error state if data fetching fails.
   if (error) {
     return (
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-600">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center bg-white/80 backdrop-blur-lg rounded-3xl p-8 shadow-xl">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-red-600 text-3xl">⚠</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">Error Loading Analytics</h3>
+          <p className="text-red-600 mb-6 text-lg">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-semibold shadow-lg"
           >
             Retry
           </button>
@@ -139,249 +132,311 @@ const Analytics = () => {
     );
   }
 
-  // Add safety checks for data structure
-  if (!analyticsData || !analyticsData.stats || !analyticsData.userInfo) {
-    return (
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-          <p className="text-yellow-700">Analytics data is incomplete. Please try refreshing the page.</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Do not render if data is still null (should be handled by loading state, but a good safeguard).
+  if (!analyticsData) return null;
 
+  // Array of stats objects to easily map and render the top-level cards.
   const stats = [
     {
-      title: 'My Total Purchases',
+      title: 'Total Purchases',
       value: formatCurrency(analyticsData.stats.totalSales?.value || 0),
       change: analyticsData.stats.totalSales?.change || '+0%',
+      trend: analyticsData.stats.totalSales?.trend || 'up',
       icon: ShoppingCart,
-      color: 'green',
-      description: 'Total amount spent on purchases'
+      gradient: 'from-blue-500 to-blue-600',
+      shadowColor: 'shadow-blue-500/20'
     },
     {
       title: 'Commission Earned',
       value: formatCurrency(analyticsData.stats.totalRevenue?.value || 0),
       change: analyticsData.stats.totalRevenue?.change || '+0%',
+      trend: analyticsData.stats.totalRevenue?.trend || 'up',
       icon: TrendingUp,
-      color: 'purple',
-      description: 'Revenue from referrals'
+      gradient: 'from-emerald-500 to-emerald-600',
+      shadowColor: 'shadow-emerald-500/20'
     },
     {
       title: 'Current Balance',
       value: formatCurrency(analyticsData.stats.currentBalance?.value || 0),
       change: analyticsData.stats.currentBalance?.change || '+0%',
+      trend: analyticsData.stats.currentBalance?.trend || 'up',
       icon: Wallet,
-      color: 'blue',
-      description: 'Available wallet balance'
+      gradient: 'from-violet-500 to-violet-600',
+      shadowColor: 'shadow-violet-500/20'
     },
     {
       title: 'Total Transactions',
       value: formatNumber(analyticsData.stats.transactionCount?.value || 0),
       change: analyticsData.stats.transactionCount?.change || '+0%',
+      trend: analyticsData.stats.transactionCount?.trend || 'up',
       icon: DollarSign,
-      color: 'orange',
-      description: 'Number of purchases made'
+      gradient: 'from-orange-500 to-orange-600',
+      shadowColor: 'shadow-orange-500/20'
     }
   ];
 
-  // Process chart data
-  const monthlyPurchases = processMonthlyData(analyticsData.monthlyData);
-  const monthlyCommissions = processMonthlyData(analyticsData.commissionData);
-
+// The main JSX for the dashboard UI.
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Header with User Info */}
-      <div className="mb-8">
-        <div className="flex items-center mb-4">
-          <User className="w-8 h-8 text-blue-600 mr-3" />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Analytics</h1>
-            <p className="text-gray-600">Personal dashboard for {analyticsData.userInfo.name || 'User'}</p>
-          </div>
-        </div>
-        
-        {/* User Info Card */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm text-gray-500">Member Since</p>
-              <p className="font-semibold text-gray-900">
-                {analyticsData.userInfo.joinDate ? formatDate(analyticsData.userInfo.joinDate) : 'N/A'}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Email</p>
-              <p className="font-semibold text-gray-900">{analyticsData.userInfo.email || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Referral Code</p>
-              <p className="font-semibold text-blue-600">{analyticsData.userInfo.referralCode || 'N/A'}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <div key={index} className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-lg ${getColorClasses(stat.color)}`}>
-                  <Icon className="w-6 h-6" />
-                </div>
-                <span className="text-sm font-medium text-green-600">{stat.change}</span>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</h3>
-              <p className="text-gray-900 font-medium">{stat.title}</p>
-              <p className="text-sm text-gray-500 mt-1">{stat.description}</p>
-            </div>
-          );
-        })}
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8" style={{ outline: 'none' }}>
+      <style>{`
+        * {
+          outline: none !important;
+        }
+        *:focus {
+          outline: none !important;
+        }
+        svg {
+          outline: none !important;
+        }
+        .recharts-wrapper {
+          outline: none !important;
+        }
+        .recharts-surface {
+          outline: none !important;
+        }
+      `}</style>
+      <div className="max-w-7xl mx-auto space-y-8">
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Monthly Purchases Chart */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-gray-900">My Monthly Purchases</h3>
-            <BarChart3 className="w-6 h-6 text-green-600" />
+        {/* Header Section with User Info */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl border border-white/20">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl">
+                <User className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                  Weekly Progress
+                </h1>
+                <p className="text-gray-600 text-lg mt-1">Welcome back, {analyticsData.userInfo.name}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-white/70 rounded-xl px-4 py-3 shadow-lg backdrop-blur-sm border border-white/30">
+              <Calendar className="w-5 h-5 text-blue-500" />
+              <span className="text-sm font-semibold text-gray-700">Last 7 days</span>
+            </div>
           </div>
-          
-          {monthlyPurchases && monthlyPurchases.length > 0 ? (
-            <div className="h-64">
+          {/* User Info Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            {[
+              { label: 'Member Since', value: formatDate(analyticsData.userInfo.joinDate), color: 'text-blue-600' },
+              { label: 'Email', value: analyticsData.userInfo.email, color: 'text-gray-900' },
+              { label: 'Referral Code', value: analyticsData.userInfo.referralCode, color: 'text-emerald-600' }
+            ].map((item, index) => (
+              <div key={index} className="bg-white/70 backdrop-blur-sm rounded-2xl p-5 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
+                <p className="text-sm text-gray-500 mb-2 font-semibold">{item.label}</p>
+                <p className={`font-bold text-xl ${item.color}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+            const isPositive = stat.trend === 'up';
+            const TrendIcon = isPositive ? ArrowUp : ArrowDown;
+
+            return (
+              <div key={index} className={`bg-white/90 backdrop-blur-xl rounded-3xl p-6 hover:shadow-2xl transition-all duration-500 hover:scale-105 ${stat.shadowColor} shadow-xl border border-white/20`}>
+                <div className="flex items-center justify-between mb-6">
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-r ${stat.gradient} flex items-center justify-center shadow-xl`}>
+                    <Icon className="w-7 h-7 text-white" />
+                  </div>
+                  <div className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold ${
+                    isPositive
+                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      : 'bg-red-100 text-red-700 border border-red-200'
+                  }`}>
+                    <TrendIcon className="w-3.5 h-3.5" />
+                    {stat.change}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
+                  <p className="text-sm text-gray-600 font-semibold">{stat.title}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Weekly Progress Charts */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+
+          {/* Weekly Purchases Line Chart */}
+          <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Weekly Purchases</h3>
+                <p className="text-gray-600">Your spending progress this week</p>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl">
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+            </div>
+
+            <div className="h-80" style={{ outline: 'none' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyPurchases}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="monthLabel" 
-                    tick={{ fontSize: 12 }}
-                    stroke="#666"
+                <LineChart data={analyticsData.weeklyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} style={{ outline: 'none' }}>
+                  <defs>
+                    <linearGradient id="purchaseGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#3B82F6" />
+                      <stop offset="100%" stopColor="#1D4ED8" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.6} />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }}
+                    axisLine={{ stroke: '#D1D5DB', strokeWidth: 2 }}
+                    tickLine={{ stroke: '#D1D5DB' }}
                   />
-                  <YAxis 
-                    tick={{ fontSize: 12 }}
-                    stroke="#666"
-                    tickFormatter={(value) => `$${value}`}
+                  <YAxis
+                    tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }}
+                    axisLine={{ stroke: '#D1D5DB', strokeWidth: 2 }}
+                    tickLine={{ stroke: '#D1D5DB' }}
+                    tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar 
-                    dataKey="purchases" 
-                    fill="#10b981" 
-                    radius={[4, 4, 0, 0]}
+                  <Line
+                    type="monotone"
+                    dataKey="purchases"
+                    stroke="url(#purchaseGradient)"
+                    strokeWidth={4}
+                    dot={{ fill: '#3B82F6', strokeWidth: 3, stroke: '#ffffff', r: 6 }}
+                    activeDot={{ r: 8, stroke: '#3B82F6', strokeWidth: 4, fill: '#ffffff', shadow: true }}
                     name="Purchases"
                   />
-                </BarChart>
+                </LineChart>
               </ResponsiveContainer>
             </div>
-          ) : (
-            <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500">No purchase history yet</p>
-                <p className="text-sm text-gray-400">Start making purchases to see trends</p>
+          </div>
+
+          {/* Weekly Commissions Area Chart */}
+          <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Weekly Commissions</h3>
+                <p className="text-gray-600">Your earnings progress this week</p>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-xl">
+                <DollarSign className="w-6 h-6 text-white" />
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Monthly Commissions Chart */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-gray-900">My Monthly Commissions</h3>
-            <TrendingUp className="w-6 h-6 text-purple-600" />
-          </div>
-          
-          {monthlyCommissions && monthlyCommissions.length > 0 ? (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyCommissions}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="monthLabel" 
-                    tick={{ fontSize: 12 }}
-                    stroke="#666"
+            <div className="h-80" style={{ outline: 'none' }}>
+              <ResponsiveContainer width="100%" height="100%" >
+                <AreaChart data={analyticsData.weeklyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} style={{ outline: 'none' }}>
+                  <defs>
+                    <linearGradient id="commissionAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10B981" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="#10B981" stopOpacity={0.1} />
+                    </linearGradient>
+                    <linearGradient id="commissionLineGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#059669" />
+                      <stop offset="100%" stopColor="#10B981" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.6} />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }}
+                    axisLine={{ stroke: '#D1D5DB', strokeWidth: 2 }}
+                    tickLine={{ stroke: '#D1D5DB' }}
                   />
-                  <YAxis 
-                    tick={{ fontSize: 12 }}
-                    stroke="#666"
+                  <YAxis
+                    tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }}
+                    axisLine={{ stroke: '#D1D5DB', strokeWidth: 2 }}
+                    tickLine={{ stroke: '#D1D5DB' }}
                     tickFormatter={(value) => `$${value}`}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Area
                     type="monotone"
                     dataKey="commissions"
-                    stroke="#8b5cf6"
-                    fill="#8b5cf6"
-                    fillOpacity={0.3}
-                    strokeWidth={2}
+                    stroke="url(#commissionLineGradient)"
+                    strokeWidth={4}
+                    fill="url(#commissionAreaGradient)"
                     name="Commissions"
+                    dot={{ fill: '#10B981', strokeWidth: 3, stroke: '#ffffff', r: 5 }}
+                    activeDot={{ r: 7, stroke: '#10B981', strokeWidth: 3, fill: '#ffffff' }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          ) : (
-            <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500">No commission earnings yet</p>
-                <p className="text-sm text-gray-400">Invite friends to start earning</p>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* Combined Overview Chart */}
-      {monthlyPurchases.length > 0 && monthlyCommissions.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Purchases vs Commissions Overview</h3>
-          <div className="h-80">
+        {/* Combined Progress Overview */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl">
+          <div className="mb-8">
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Weekly Performance Overview</h3>
+            <p className="text-gray-600">Combined view of your purchases and commission earnings this week</p>
+          </div>
+
+          <div className="h-96" style={{ outline: 'none' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyPurchases}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="monthLabel" 
-                  tick={{ fontSize: 12 }}
-                  stroke="#666"
+              <LineChart data={analyticsData.weeklyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} style={{ outline: 'none' }}>
+                <defs>
+                  <linearGradient id="multiPurchaseGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#3B82F6" />
+                    <stop offset="100%" stopColor="#1D4ED8" />
+                  </linearGradient>
+                  <linearGradient id="multiCommissionGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#10B981" />
+                    <stop offset="100%" stopColor="#059669" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.6} />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }}
+                  axisLine={{ stroke: '#D1D5DB', strokeWidth: 2 }}
+                  tickLine={{ stroke: '#D1D5DB' }}
                 />
-                <YAxis 
-                  tick={{ fontSize: 12 }}
-                  stroke="#666"
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }}
+                  axisLine={{ stroke: '#D1D5DB', strokeWidth: 2 }}
+                  tickLine={{ stroke: '#D1D5DB' }}
+                  tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }}
+                  axisLine={{ stroke: '#D1D5DB', strokeWidth: 2 }}
+                  tickLine={{ stroke: '#D1D5DB' }}
                   tickFormatter={(value) => `$${value}`}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Line
+                  yAxisId="left"
                   type="monotone"
                   dataKey="purchases"
-                  stroke="#10b981"
-                  strokeWidth={3}
-                  dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                  stroke="url(#multiPurchaseGradient)"
+                  strokeWidth={4}
+                  dot={{ fill: '#3B82F6', strokeWidth: 3, stroke: '#ffffff', r: 6 }}
+                  activeDot={{ r: 8, stroke: '#3B82F6', strokeWidth: 4, fill: '#ffffff' }}
                   name="Purchases"
                 />
                 <Line
+                  yAxisId="right"
                   type="monotone"
                   dataKey="commissions"
-                  stroke="#8b5cf6"
-                  strokeWidth={3}
-                  dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
+                  stroke="url(#multiCommissionGradient)"
+                  strokeWidth={4}
+                  dot={{ fill: '#10B981', strokeWidth: 3, stroke: '#ffffff', r: 6 }}
+                  activeDot={{ r: 8, stroke: '#10B981', strokeWidth: 4, fill: '#ffffff' }}
                   name="Commissions"
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
-
-export default Analytics;

@@ -7,6 +7,14 @@ const Profile = () => {
   const { user } = useAuth();
   const [copied, setCopied] = useState({ code: false, link: false });
 
+  // Generate referral link dynamically
+  const getReferralLink = () => {
+    if (!user?.referralCode) return null;
+    return `${window.location.origin}/signup?ref=${user.referralCode}`;
+  };
+
+  const referralLink = getReferralLink();
+
   const copyToClipboard = async (text, type) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -20,19 +28,19 @@ const Profile = () => {
   };
 
   const shareReferralLink = async () => {
-    if (navigator.share && user.referralLink) {
+    if (navigator.share && referralLink) {
       try {
         await navigator.share({
           title: 'Join me on this amazing platform!',
           text: 'Sign up using my referral link and let\'s get started together!',
-          url: user.referralLink,
+          url: referralLink,
         });
       } catch (error) {
         console.error('Error sharing:', error);
-        copyToClipboard(user.referralLink, 'link');
+        copyToClipboard(referralLink, 'link');
       }
-    } else if (user.referralLink) {
-      copyToClipboard(user.referralLink, 'link');
+    } else if (referralLink) {
+      copyToClipboard(referralLink, 'link');
     }
   };
 
@@ -147,8 +155,9 @@ const Profile = () => {
               <span className="text-sm font-medium text-gray-500">Your Referral Link</span>
               <div className="flex gap-2">
                 <button
-                  onClick={() => copyToClipboard(user.referralLink, 'link')}
+                  onClick={() => copyToClipboard(referralLink, 'link')}
                   className="flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-sm font-medium"
+                  disabled={!referralLink}
                 >
                   {copied.link ? (
                     <>
@@ -165,6 +174,7 @@ const Profile = () => {
                 <button
                   onClick={shareReferralLink}
                   className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                  disabled={!referralLink}
                 >
                   <Share2 className="w-4 h-4" />
                   Share
@@ -174,7 +184,7 @@ const Profile = () => {
             
             <div className="bg-gray-50 rounded-lg p-3 border">
               <p className="text-gray-700 font-mono text-sm break-all">
-                {user.referralLink || `${window.location.origin}/signup?ref=${user.referralCode}`}
+                {referralLink || 'Unable to generate referral link'}
               </p>
             </div>
             
@@ -192,10 +202,12 @@ const Profile = () => {
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => {
-                  const link = user.referralLink || `${window.location.origin}/signup?ref=${user.referralCode}`;
-                  window.open(`https://wa.me/?text=${encodeURIComponent(`Join me on this amazing platform! Sign up using my link: ${link}`)}`, '_blank');
+                  if (referralLink) {
+                    window.open(`https://wa.me/?text=${encodeURIComponent(`Join me on this amazing platform! Sign up using my link: ${referralLink}`)}`, '_blank');
+                  }
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
+                disabled={!referralLink}
               >
                 <span>📱</span>
                 WhatsApp
@@ -203,10 +215,12 @@ const Profile = () => {
               
               <button
                 onClick={() => {
-                  const link = user.referralLink || `${window.location.origin}/signup?ref=${user.referralCode}`;
-                  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Join me on this amazing platform! Sign up using my link: ${link}`)}`, '_blank');
+                  if (referralLink) {
+                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Join me on this amazing platform! Sign up using my link: ${referralLink}`)}`, '_blank');
+                  }
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium disabled:opacity-50"
+                disabled={!referralLink}
               >
                 <span>🐦</span>
                 Twitter
@@ -214,10 +228,12 @@ const Profile = () => {
               
               <button
                 onClick={() => {
-                  const link = user.referralLink || `${window.location.origin}/signup?ref=${user.referralCode}`;
-                  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`, '_blank');
+                  if (referralLink) {
+                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}`, '_blank');
+                  }
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-sm font-medium disabled:opacity-50"
+                disabled={!referralLink}
               >
                 <span>📘</span>
                 Facebook
@@ -225,12 +241,14 @@ const Profile = () => {
               
               <button
                 onClick={() => {
-                  const link = user.referralLink || `${window.location.origin}/signup?ref=${user.referralCode}`;
-                  const subject = 'Join me on this amazing platform!';
-                  const body = `Hi there!\n\nI wanted to invite you to join this amazing platform I've been using. Sign up using my referral link and we'll both benefit!\n\n${link}\n\nHope to see you there!`;
-                  window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+                  if (referralLink) {
+                    const subject = 'Join me on this amazing platform!';
+                    const body = `Hi there!\n\nI wanted to invite you to join this amazing platform I've been using. Sign up using my referral link and we'll both benefit!\n\n${referralLink}\n\nHope to see you there!`;
+                    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+                  }
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium disabled:opacity-50"
+                disabled={!referralLink}
               >
                 <span>✉️</span>
                 Email

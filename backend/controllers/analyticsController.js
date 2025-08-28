@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const moment = require('moment');
 
 // @desc    Get user analytics data for personal dashboard
 // @route   GET /api/analytics/dashboard
@@ -8,7 +9,7 @@ const getDashboardAnalytics = async (req, res) => {
     try {
         const userId = req.user._id;
 
-        // Get user first to ensure user exists
+        // Ensure user exists
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
@@ -35,117 +36,105 @@ const getDashboardAnalytics = async (req, res) => {
         // 4. User's Transaction Count
         const transactionCount = await Transaction.countDocuments({ buyer: userId, type: "buy" });
 
-        // 5. Monthly Purchase Data (user's own purchases) - FIXED FORMAT
-        const monthlyPurchaseData = await Transaction.aggregate([
-            { $match: { buyer: userId, type: "buy" } },
-            {
-                $group: {
-                    _id: {
-                        month: { $month: "$createdAt" },
-                        year: { $year: "$createdAt" }
-                    },
-                    totalAmount: { $sum: { $abs: "$amount" } },
-                    count: { $sum: 1 }
-                }
-            },
-            { $sort: { "_id.year": -1, "_id.month": -1 } },
-            { $limit: 12 },
-            {
-                $project: {
-                    month: {
-                        $dateFromString: {
-                            dateString: {
-                                $concat: [
-                                    { $toString: "$_id.year" },
-                                    "-",
-                                    { 
-                                        $cond: {
-                                            if: { $lt: ["$_id.month", 10] },
-                                            then: { $concat: ["0", { $toString: "$_id.month" }] },
-                                            else: { $toString: "$_id.month" }
-                                        }
-                                    },
-                                    "-01"
-                                ]
+        // Weekly data ranges
+        const startOfWeek = moment().startOf('isoWeek');
+        const startOfLastWeek = moment().subtract(1, 'weeks').startOf('isoWeek');
+
+        // Helper function to get weekly grouped data
+        const getWeeklyData = async (pipeline) => {
+            return Transaction.aggregate([
+                ...pipeline,
+                {
+                    $group: {
+                        _id: { $dayOfWeek: "$createdAt" },
+                        total: { $sum: "$amountToSum" }
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        day: {
+                            $switch: {
+                                branches: [
+                                    { case: { $eq: ["$_id", 1] }, then: "Sun" },
+                                    { case: { $eq: ["$_id", 2] }, then: "Mon" },
+                                    { case: { $eq: ["$_id", 3] }, then: "Tue" },
+                                    { case: { $eq: ["$_id", 4] }, then: "Wed" },
+                                    { case: { $eq: ["$_id", 5] }, then: "Thu" },
+                                    { case: { $eq: ["$_id", 6] }, then: "Fri" },
+                                    { case: { $eq: ["$_id", 7] }, then: "Sat" }
+                                ],
+                                default: "N/A"
                             }
-                        }
-                    },
-                    purchases: "$totalAmount",
-                    amount: "$totalAmount", // Alternative field name
-                    count: 1
+                        },
+                        total: 1
+                    }
                 }
-            }
+            ]);
+        };
+
+        // Purchases - Current Week
+        const currentWeekPurchases = await getWeeklyData([
+            { $match: { buyer: userId, type: "buy", createdAt: { $gte: startOfWeek.toDate() } } },
+            { $addFields: { amountToSum: { $abs: "$amount" } } }
         ]);
 
-        // 6. Monthly Commission Data (commissions earned by user) - FIXED FORMAT
-        const monthlyCommissionData = await Transaction.aggregate([
+        // Purchases - Last Week
+        const lastWeekPurchases = await getWeeklyData([
+            { $match: { buyer: userId, type: "buy", createdAt: { $gte: startOfLastWeek.toDate(), $lt: startOfWeek.toDate() } } },
+            { $addFields: { amountToSum: { $abs: "$amount" } } }
+        ]);
+
+        // Commissions - Current Week
+        const currentWeekCommissions = await getWeeklyData([
             { $unwind: "$commissions" },
-            { $match: { "commissions.user": userId } },
-            {
-                $group: {
-                    _id: {
-                        month: { $month: "$createdAt" },
-                        year: { $year: "$createdAt" }
-                    },
-                    totalCommission: { $sum: "$commissions.commissionAmount" },
-                    count: { $sum: 1 }
-                }
-            },
-            { $sort: { "_id.year": -1, "_id.month": -1 } },
-            { $limit: 12 },
-            {
-                $project: {
-                    month: {
-                        $dateFromString: {
-                            dateString: {
-                                $concat: [
-                                    { $toString: "$_id.year" },
-                                    "-",
-                                    { 
-                                        $cond: {
-                                            if: { $lt: ["$_id.month", 10] },
-                                            then: { $concat: ["0", { $toString: "$_id.month" }] },
-                                            else: { $toString: "$_id.month" }
-                                        }
-                                    },
-                                    "-01"
-                                ]
-                            }
-                        }
-                    },
-                    commissions: "$totalCommission",
-                    commission: "$totalCommission", // Alternative field name
-                    count: 1
-                }
-            }
+            { $match: { "commissions.user": userId, createdAt: { $gte: startOfWeek.toDate() } } },
+            { $addFields: { amountToSum: "$commissions.commissionAmount" } }
         ]);
 
-        // Calculate percentage changes (you can enhance this with actual calculations)
+        // Commissions - Last Week
+        const lastWeekCommissions = await getWeeklyData([
+            { $unwind: "$commissions" },
+            { $match: { "commissions.user": userId, createdAt: { $gte: startOfLastWeek.toDate(), $lt: startOfWeek.toDate() } } },
+            { $addFields: { amountToSum: "$commissions.commissionAmount" } }
+        ]);
+
+        // Merge data into chart-friendly format
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const weeklyData = days.map(day => {
+            return {
+                day,
+                purchases: currentWeekPurchases.find(d => d.day === day)?.total || 0,
+                prevPurchases: lastWeekPurchases.find(d => d.day === day)?.total || 0,
+                commissions: currentWeekCommissions.find(d => d.day === day)?.total || 0,
+                prevCommissions: lastWeekCommissions.find(d => d.day === day)?.total || 0,
+            };
+        });
+
         const responseData = {
             stats: {
                 totalSales: {
                     value: totalSales,
-                    change: '+12%',
+                    change: '+12%', // static for now
                     trend: 'up'
                 },
                 totalRevenue: {
                     value: totalRevenue,
-                    change: '+15%',
+                    change: '+15%', // static for now
                     trend: 'up'
                 },
                 currentBalance: {
                     value: currentBalance,
-                    change: '+5%',
+                    change: '+5%', // static for now
                     trend: 'up'
                 },
                 transactionCount: {
                     value: transactionCount,
-                    change: '+8%',
+                    change: '+8%', // static for now
                     trend: 'up'
                 }
             },
-            monthlyData: monthlyPurchaseData || [],
-            commissionData: monthlyCommissionData || [],
+            weeklyData,
             userInfo: {
                 name: user.name || '',
                 email: user.email || '',
@@ -159,7 +148,7 @@ const getDashboardAnalytics = async (req, res) => {
 
     } catch (error) {
         console.error('User analytics fetch error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             message: 'Server error while fetching user analytics',
             error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
         });
@@ -231,11 +220,11 @@ const getSalesAnalytics = async (req, res) => {
 
     } catch (error) {
         console.error('Sales analytics error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             message: 'Server error while fetching sales analytics',
             error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
         });
-    }
+    } 
 };
 
 module.exports = {
