@@ -8,7 +8,8 @@ const cors = require('cors'); // Required for frontend-backend communication
 const userRoutes = require('./routes/userRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const addBalanceRoutes = require("./routes/addBalanceRoutes");
-const analyticsRoutes = require('./routes/analyticsRoutes'); // ✅ New analytics routes
+const analyticsRoutes = require('./routes/analyticsRoutes');
+const commissionRoutes = require('./routes/commissionRoutes'); // ✅ New commission routes
 
 // Load environment variables from .env file
 dotenv.config();
@@ -40,7 +41,8 @@ app.use(express.json());
 app.use('/api/users', userRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use("/api/add-balance", addBalanceRoutes);
-app.use('/api/analytics', analyticsRoutes); // ✅ New analytics routes
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/commissions', commissionRoutes); // ✅ New commission routes
 
 // Define the port from environment variables or default to 8000
 const PORT = process.env.PORT || 8000;

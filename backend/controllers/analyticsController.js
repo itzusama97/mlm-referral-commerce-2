@@ -30,10 +30,65 @@ const getDashboardAnalytics = async (req, res) => {
         ]);
         const totalRevenue = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
 
-        // 3. Current User Balance
+        // 3. Today's Commission (for the clickable box) ✅
+        const startOfToday = moment().startOf('day').toDate();
+        const endOfToday = moment().endOf('day').toDate();
+
+        const todayCommissionData = await Transaction.aggregate([
+            { $unwind: "$commissions" },
+            { 
+                $match: { 
+                    "commissions.user": userId,
+                    createdAt: { $gte: startOfToday, $lte: endOfToday }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    todayCommission: { $sum: "$commissions.commissionAmount" }
+                }
+            }
+        ]);
+        const todayCommission = todayCommissionData.length > 0 ? todayCommissionData[0].todayCommission : 0;
+
+        // Calculate yesterday's commission for percentage change
+        const startOfYesterday = moment().subtract(1, 'day').startOf('day').toDate();
+        const endOfYesterday = moment().subtract(1, 'day').endOf('day').toDate();
+
+        const yesterdayCommissionData = await Transaction.aggregate([
+            { $unwind: "$commissions" },
+            { 
+                $match: { 
+                    "commissions.user": userId,
+                    createdAt: { $gte: startOfYesterday, $lte: endOfYesterday }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    yesterdayCommission: { $sum: "$commissions.commissionAmount" }
+                }
+            }
+        ]);
+        const yesterdayCommission = yesterdayCommissionData.length > 0 ? yesterdayCommissionData[0].yesterdayCommission : 0;
+
+        // Calculate today's commission percentage change
+        let todayCommissionChange = '0%';
+        let todayCommissionTrend = 'same';
+        
+        if (yesterdayCommission > 0) {
+            const changePercent = ((todayCommission - yesterdayCommission) / yesterdayCommission * 100);
+            todayCommissionChange = `${changePercent > 0 ? '+' : ''}${changePercent.toFixed(1)}%`;
+            todayCommissionTrend = todayCommission > yesterdayCommission ? 'up' : todayCommission < yesterdayCommission ? 'down' : 'same';
+        } else if (todayCommission > 0) {
+            todayCommissionChange = '+100%';
+            todayCommissionTrend = 'up';
+        }
+
+        // 4. Current User Balance
         const currentBalance = user.balance || 0;
 
-        // 4. User's Transaction Count
+        // 5. User's Transaction Count
         const transactionCount = await Transaction.countDocuments({ buyer: userId, type: "buy" });
 
         // Weekly data ranges
@@ -122,6 +177,11 @@ const getDashboardAnalytics = async (req, res) => {
                     value: totalRevenue,
                     change: '+15%', // static for now
                     trend: 'up'
+                },
+                todayCommission: { // ✅ New field for today's commission
+                    value: todayCommission,
+                    change: todayCommissionChange,
+                    trend: todayCommissionTrend
                 },
                 currentBalance: {
                     value: currentBalance,

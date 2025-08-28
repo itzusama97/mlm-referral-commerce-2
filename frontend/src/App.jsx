@@ -12,7 +12,9 @@ import Profile from './pages/Profile';
 import BuyProduct from './pages/BuyProduct';
 import Analytics from './pages/Analytics';
 import AddAmount from './pages/AddAmount';
+import CommissionAnalytics from './pages/CommissionAnalytics'
 
+// import CommissionAnalytics from './pages/CommissionAnalytics';
 import './index.css';
 
 // Protected Route Component
@@ -64,6 +66,8 @@ const DashboardRoutes = () => {
         <Route path="/buy-product" element={<BuyProduct />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/add-amount" element={<AddAmount />} />
+       <Route path="/commission" element={<CommissionAnalytics />} />
+
       </Routes>
     </DashboardLayout>
   );

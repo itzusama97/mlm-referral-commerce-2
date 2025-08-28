@@ -1,6 +1,6 @@
 import { api } from '../utils/api';   // make sure path is correct
 import { useAuth } from '../context/AuthContext';
-
+import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Wallet, DollarSign, ShoppingCart, User, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
 import {
@@ -23,13 +23,15 @@ export default function App() {
 
 // The Analytics dashboard component.
 const Analytics = () => {
-    const { user } = useAuth();   // for showing name/email etc.
+  const { user } = useAuth();   // for showing name/email etc.
   // State to hold the analytics data, manage loading state, and handle errors.
   const [analyticsData, setAnalyticsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+      const navigate = useNavigate();
 
-useEffect(() => {
+
+  useEffect(() => {
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
@@ -47,6 +49,17 @@ useEffect(() => {
 
     fetchAnalytics();
   }, []);
+
+  // Function to handle commission box click
+  const handleCommissionClick = () => {
+    // You can replace this with your routing method
+    // For React Router: navigate('/commission-analytics');
+    // For now, I'll show an alert to demonstrate
+
+    // Example with React Router (if you're using it):
+    
+    navigate('/commission');
+  };
 
   // Utility function to format currency values.
   const formatCurrency = (amount) => {
@@ -144,7 +157,8 @@ useEffect(() => {
       trend: analyticsData.stats.totalSales?.trend || 'up',
       icon: ShoppingCart,
       gradient: 'from-blue-500 to-blue-600',
-      shadowColor: 'shadow-blue-500/20'
+      shadowColor: 'shadow-blue-500/20',
+      isClickable: false
     },
     {
       title: 'Commission Earned',
@@ -153,7 +167,9 @@ useEffect(() => {
       trend: analyticsData.stats.totalRevenue?.trend || 'up',
       icon: TrendingUp,
       gradient: 'from-emerald-500 to-emerald-600',
-      shadowColor: 'shadow-emerald-500/20'
+      shadowColor: 'shadow-emerald-500/20',
+      isClickable: true, // This makes it clickable
+      onClick:handleCommissionClick
     },
     {
       title: 'Current Balance',
@@ -162,7 +178,8 @@ useEffect(() => {
       trend: analyticsData.stats.currentBalance?.trend || 'up',
       icon: Wallet,
       gradient: 'from-violet-500 to-violet-600',
-      shadowColor: 'shadow-violet-500/20'
+      shadowColor: 'shadow-violet-500/20',
+      isClickable: false
     },
     {
       title: 'Total Transactions',
@@ -171,11 +188,12 @@ useEffect(() => {
       trend: analyticsData.stats.transactionCount?.trend || 'up',
       icon: DollarSign,
       gradient: 'from-orange-500 to-orange-600',
-      shadowColor: 'shadow-orange-500/20'
+      shadowColor: 'shadow-orange-500/20',
+      isClickable: false
     }
   ];
 
-// The main JSX for the dashboard UI.
+  // The main JSX for the dashboard UI.
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8" style={{ outline: 'none' }}>
       <style>{`
@@ -231,7 +249,7 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Stats Grid */}
+        {/* Stats Grid - UPDATED WITH CLICKABLE LOGIC */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
@@ -239,16 +257,20 @@ useEffect(() => {
             const TrendIcon = isPositive ? ArrowUp : ArrowDown;
 
             return (
-              <div key={index} className={`bg-white/90 backdrop-blur-xl rounded-3xl p-6 hover:shadow-2xl transition-all duration-500 hover:scale-105 ${stat.shadowColor} shadow-xl border border-white/20`}>
+              <div
+                key={index}
+                className={`bg-white/90 backdrop-blur-xl rounded-3xl p-6 hover:shadow-2xl transition-all duration-500 hover:scale-105 ${stat.shadowColor} shadow-xl border border-white/20 ${stat.isClickable ? 'cursor-pointer hover:shadow-emerald-500/30' : ''
+                  }`}
+                onClick={stat.isClickable ? stat.onClick : undefined}
+              >
                 <div className="flex items-center justify-between mb-6">
                   <div className={`w-14 h-14 rounded-2xl bg-gradient-to-r ${stat.gradient} flex items-center justify-center shadow-xl`}>
                     <Icon className="w-7 h-7 text-white" />
                   </div>
-                  <div className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold ${
-                    isPositive
+                  <div className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold ${isPositive
                       ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                       : 'bg-red-100 text-red-700 border border-red-200'
-                  }`}>
+                    }`}>
                     <TrendIcon className="w-3.5 h-3.5" />
                     {stat.change}
                   </div>
@@ -256,6 +278,9 @@ useEffect(() => {
                 <div>
                   <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
                   <p className="text-sm text-gray-600 font-semibold">{stat.title}</p>
+                  {stat.isClickable && (
+                    <p className="text-xs text-emerald-600 mt-2 font-medium">Click for details →</p>
+                  )}
                 </div>
               </div>
             );
@@ -265,7 +290,7 @@ useEffect(() => {
         {/* Weekly Progress Charts */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
 
-          {/* Weekly Purchases Line Chart */}
+          {/* Weekly Purchases Area Chart */}
           <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -279,13 +304,25 @@ useEffect(() => {
 
             <div className="h-80" style={{ outline: 'none' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={analyticsData.weeklyData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} style={{ outline: 'none' }}>
+                <AreaChart
+                  data={analyticsData.weeklyData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                  style={{ outline: 'none' }}
+                >
                   <defs>
-                    <linearGradient id="purchaseGradient" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#3B82F6" />
-                      <stop offset="100%" stopColor="#1D4ED8" />
+                    {/* Blue gradient for fill */}
+                    <linearGradient id="purchaseAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.1} />
+                    </linearGradient>
+
+                    {/* Blue gradient for stroke */}
+                    <linearGradient id="purchaseLineGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#1D4ED8" />
+                      <stop offset="100%" stopColor="#3B82F6" />
                     </linearGradient>
                   </defs>
+
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.6} />
                   <XAxis
                     dataKey="day"
@@ -300,19 +337,21 @@ useEffect(() => {
                     tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="purchases"
-                    stroke="url(#purchaseGradient)"
+                    stroke="url(#purchaseLineGradient)"
                     strokeWidth={4}
-                    dot={{ fill: '#3B82F6', strokeWidth: 3, stroke: '#ffffff', r: 6 }}
-                    activeDot={{ r: 8, stroke: '#3B82F6', strokeWidth: 4, fill: '#ffffff', shadow: true }}
+                    fill="url(#purchaseAreaGradient)"
                     name="Purchases"
+                    dot={{ fill: '#3B82F6', strokeWidth: 3, stroke: '#ffffff', r: 5 }}
+                    activeDot={{ r: 7, stroke: '#1D4ED8', strokeWidth: 3, fill: '#ffffff' }}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
+
 
           {/* Weekly Commissions Area Chart */}
           <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl">
