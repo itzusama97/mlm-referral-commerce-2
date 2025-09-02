@@ -222,8 +222,8 @@ const Analytics = () => {
               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl">
                 <User className="w-8 h-8 text-white" />
               </div>
-              <div>
-                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              <div className=''>
+                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 pb-1 to-gray-600 bg-clip-text text-transparent">
                   Weekly Progress
                 </h1>
                 <p className="text-gray-600 text-lg mt-1">Welcome back, {analyticsData.userInfo.name}</p>

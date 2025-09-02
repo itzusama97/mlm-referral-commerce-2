@@ -286,7 +286,6 @@ const getSalesAnalytics = async (req, res) => {
         });
     } 
 };
-
 module.exports = {
     getDashboardAnalytics,
     getSalesAnalytics

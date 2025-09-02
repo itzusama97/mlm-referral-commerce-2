@@ -47,7 +47,7 @@ const DashboardLayout = ({ children }) => {
       <div className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg">
         {/* Logo/Brand */}
         <div className="p-6 border-b">
-          <h1 className="text-2xl font-bold text-gray-800">MyApp</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Krist</h1>
         </div>
 
         {/* Menu Items */}

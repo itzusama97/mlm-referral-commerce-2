@@ -32,10 +32,16 @@ connectDB();
 const app = express();
 
 // Use CORS middleware to allow requests from your frontend
-app.use(cors());
-
+app.use(cors({
+  origin: 'https://mlm-frontend-uxmz.vercel.app',
+  credentials: true
+}));
 // Body parser middleware to handle JSON data
 app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
 
 // Main API routes
 app.use('/api/users', userRoutes);
